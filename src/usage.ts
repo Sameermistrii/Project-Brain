@@ -5,7 +5,7 @@ import { brainDir } from "./brain.js";
 
 /**
  * Per-model usage on this computer, kept with the app's settings. The model tools do not report how much of a
- * subscription is left, so this counts what Project Brain asked and notices when a tool says a limit was hit.
+ * subscription is left, so this counts what Dexter asked and notices when a tool says a limit was hit.
  */
 
 interface UsageRecord extends UsageEvent {
@@ -24,7 +24,7 @@ export interface UsageSummary {
 }
 
 const LIMIT = /usage limit|rate limit|quota|limit reached|limit exceeded|too many requests|\b429\b|past due|billing|out of credits/i;
-const PROVIDERS: Provider[] = ["cursor", "claude", "gpt", "grok"];
+const PROVIDERS: Provider[] = ["cursor", "claude", "gpt", "grok", "gemini"];
 const KEEP_DAYS = 30;
 
 export function isLimitError(text: string): boolean {

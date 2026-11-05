@@ -7,7 +7,7 @@ description: Shared project brain. The user chooses who writes code.
 alwaysApply: true
 ---
 
-This project keeps a shared brain in \`.brain/\`. Cursor, Claude, ChatGPT, and Grok read it so they share one goal, one set of decisions, and one handoff log.
+This project keeps a shared brain in \`.brain/\`. Cursor, Claude, ChatGPT, Grok, and Gemini read it so they share one goal, one set of decisions, and one handoff log.
 
 Before planning or editing, call the project-brain MCP tool \`brain_brief\`. If MCP is unavailable, read \`.brain/local.json\`, \`.brain/manifest.json\`, \`.brain/goal.md\`, \`.brain/summary.md\`, \`.brain/now.md\`, and the latest lines of \`.brain/decisions.jsonl\` and \`.brain/handoffs.jsonl\`.
 

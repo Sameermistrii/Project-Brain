@@ -1,20 +1,19 @@
 const writers = [
   ["", "None"],
   ["me", "You"],
+  ["auto", "Auto"],
   ["cursor", "Cursor"],
   ["claude", "Claude"],
   ["gpt", "GPT"],
   ["grok", "Grok"],
-];
-const modes = [
-  ["work", "Work"],
-  ["debate", "Debate"],
+  ["gemini", "Gemini"],
 ];
 const about = {
   cursor: "Reads this folder. Writes the code when you assign it.",
   claude: "Reads this folder. Writes only when you assign it.",
   gpt: "Reads this folder. Writes only when you assign it.",
   grok: "Reads this folder. Writes only when you assign it.",
+  gemini: "Reads this folder. Writes only when you assign it.",
 };
 
 const $ = (id) => document.getElementById(id);
@@ -41,16 +40,59 @@ for (const [id, el] of [["writers", $("writers")], ["setup-writers", $("setup-wr
   );
   el.dataset.group = id;
 }
-$("modes").replaceChildren(
-  ...modes.map(([value, label]) => {
-    const button = document.createElement("button");
-    button.className = "choice mode";
-    button.type = "button";
-    button.dataset.mode = value;
-    button.textContent = label;
-    return button;
-  }),
-);
+/** Mode buttons in Settings, the mode picker above the chat box, and the list of what each mode does. */
+let modesPainted = "";
+function paintModes(next) {
+  const modes = next.modes || [];
+  const key = modes.map((mode) => mode.id).join();
+  if (key !== modesPainted) {
+    modesPainted = key;
+    $("modes").replaceChildren(
+      ...modes.map((mode) => {
+        const button = document.createElement("button");
+        button.className = "choice mode";
+        button.type = "button";
+        button.dataset.mode = mode.id;
+        button.textContent = mode.label;
+        return button;
+      }),
+    );
+    $("chat-mode").replaceChildren(
+      ...modes.map((mode) => {
+        const option = document.createElement("option");
+        option.value = mode.id;
+        option.textContent = mode.label;
+        return option;
+      }),
+    );
+    $("mode-guide").replaceChildren(
+      ...modes.flatMap((mode) => {
+        const term = document.createElement("dt");
+        term.dataset.guide = mode.id;
+        term.textContent = mode.label;
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = { auto: "AI picks the mode", writer: "changes files", solo: "one model" }[mode.runner] || "every model";
+        term.append(tag);
+        const detail = document.createElement("dd");
+        detail.dataset.guide = mode.id;
+        detail.textContent = `${mode.summary} For example: "${mode.example}".`;
+        return [term, detail];
+      }),
+    );
+  }
+  const current = modes.find((mode) => mode.id === next.mode) || modes[0];
+  for (const button of $("modes").querySelectorAll("button")) {
+    button.setAttribute("aria-pressed", String(button.dataset.mode === next.mode));
+  }
+  for (const item of $("mode-guide").querySelectorAll("[data-guide]")) item.classList.toggle("on", item.dataset.guide === next.mode);
+  $("chat-mode").value = next.mode;
+  if (!current) return;
+  $("chat-mode-help").textContent = current.summary;
+  const ready = readyCount(next);
+  message.placeholder =
+    ready < 2 ? `Sign in to ${2 - ready} more model${ready === 1 ? "" : "s"} in Integrations to start. Any of them works.` : `${current.label}: for example, "${current.example}"`;
+}
 
 let state = null;
 let signInPoll;
@@ -66,6 +108,7 @@ function show(page) {
   }
   menu.hidden = true;
   user.setAttribute("aria-expanded", "false");
+  if (page === "home") loadHome().catch(() => {});
   if (page === "chat") loadChat().catch(showChatError);
   if (page === "memory") loadMemory().catch(showMemoryError);
   if (page === "settings") loadTeam();
@@ -89,9 +132,7 @@ function paint(next) {
   for (const button of document.querySelectorAll("[data-writer]")) {
     button.setAttribute("aria-pressed", String((button.dataset.writer || "") === (next.codeWriter || "")));
   }
-  for (const button of $("modes").querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.mode === next.mode));
-  }
+  paintModes(next);
   paintModels();
   paintHealthBanner();
   paintSetup();
@@ -171,9 +212,16 @@ function paintModels() {
   }
 }
 
+/** Models that are signed in and switched on. Any two are enough to use the app. */
+function readyCount(next) {
+  return (next.accounts || []).filter((account) => account.loggedIn && next.enabled?.[account.provider] !== false).length;
+}
+
 function paintHealthBanner() {
   const problems = (state.health || []).filter((item) => item.state === "needs-update");
   const lines = problems.map((item) => `${item.label}: ${item.detail}`);
+  const ready = readyCount(state);
+  if (ready < 2) lines.unshift(`Sign in to at least 2 models to use Dexter (${ready} ready now). Any 2 work, so skip the ones you do not use.`);
   if (state.git === false) lines.push("Undo is off: Git is not installed. Install it from git-scm.com.");
   $("health-banner").hidden = !lines.length;
   $("health-banner").textContent = lines.join("\n");
@@ -196,6 +244,69 @@ async function refresh() {
   paint(await window.desk.state());
   return state;
 }
+
+/* Home: open a folder, or go back to a recent chat from any folder. */
+
+const RECENT_SHOWN = 8;
+let showAllRecent = false;
+
+async function loadHome() {
+  const { chats } = await window.desk.home();
+  const list = $("recent-list");
+  if (!chats.length) {
+    list.replaceChildren(emptyNote("No chats yet. Open a folder, then start one in Chat."));
+    $("recent-all").hidden = true;
+    return;
+  }
+  const shown = showAllRecent ? chats : chats.slice(0, RECENT_SHOWN);
+  list.replaceChildren(
+    ...shown.map((chat) => {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "recent-row";
+      row.dataset.folder = chat.folder;
+      row.dataset.id = chat.id;
+      row.title = `${chat.title}\n${chat.folder}`;
+      const title = document.createElement("span");
+      title.className = "recent-title";
+      title.textContent = chat.title;
+      const where = document.createElement("span");
+      where.className = "recent-folder";
+      where.textContent = chat.name;
+      row.append(title, where);
+      return row;
+    }),
+  );
+  $("recent-all").hidden = chats.length <= RECENT_SHOWN;
+  $("recent-all").textContent = showAllRecent ? "Show less" : `View all (${chats.length})`;
+}
+
+$("recent-all").addEventListener("click", () => {
+  showAllRecent = !showAllRecent;
+  loadHome().catch(() => {});
+});
+
+$("recent-list").addEventListener("click", async (event) => {
+  const row = event.target.closest(".recent-row");
+  if (!row) return;
+  paint(await window.desk.openRecent(row.dataset.folder, row.dataset.id));
+  show("chat");
+});
+
+$("home-open-folder").addEventListener("click", async () => {
+  try {
+    const picked = await chooseFolder();
+    if (picked) {
+      show("chat");
+      message.focus();
+      return;
+    }
+  } catch (error) {
+    reportFolderError(error);
+    return;
+  }
+  loadHome().catch(() => {});
+});
 
 /* Chat */
 
@@ -224,9 +335,13 @@ async function loadChat() {
   for (const item of items) {
     const bubble = document.createElement("article");
     bubble.className = `bubble ${item.role}`;
-    const body = document.createElement("div");
-    body.textContent = item.text;
-    bubble.append(body);
+    if (item.role === "brain") {
+      bubble.append(window.renderMarkdown(item.text));
+    } else {
+      const body = document.createElement("div");
+      body.textContent = item.text;
+      bubble.append(body);
+    }
     if (item.actions?.length) bubble.append(actionRow(item.actions));
     const time = document.createElement("time");
     time.dateTime = item.at;
@@ -480,7 +595,7 @@ function paintSetup() {
   if (!state) return;
   const done = {
     folder: state.folderChosen,
-    connect: state.accounts.some((account) => account.loggedIn),
+    connect: readyCount(state) >= 2,
     writer: Boolean(state.codeWriter),
   };
   for (const [step, ok] of Object.entries(done)) {
@@ -490,11 +605,11 @@ function paintSetup() {
   $("setup-try").disabled = !done.folder || !done.connect;
 }
 
-$("setup-choose-folder").addEventListener("click", () => chooseFolder());
+$("setup-choose-folder").addEventListener("click", () => chooseFolder().catch(reportFolderError));
 document.querySelector('[data-go="integrations"]').addEventListener("click", () => show("integrations"));
 $("setup-try").addEventListener("click", async () => {
-  // A question in Work mode goes to the writer, who may edit. Debate mode only reads, so the first try is safe.
-  if (state.mode !== "debate") paint(await window.desk.setMode("debate"));
+  // Work mode hands a message to the writer, who may edit. Explain asks one model and only reads, so the first try is safe and cheap.
+  if (state.mode !== "explain") paint(await window.desk.setMode("explain"));
   show("chat");
   message.value = "What is in this folder? Answer in three short lines.";
   composer.requestSubmit();
@@ -524,11 +639,27 @@ user.addEventListener("click", () => {
 
 $("open-settings").addEventListener("click", () => show("settings"));
 
+let choosingFolder = false;
+
+function reportFolderError(error) {
+  if (currentPage === "home") $("recent-list").replaceChildren(emptyNote(readableError(error)));
+  else if (currentPage === "chat") showChatError(error);
+  else if (currentPage === "memory") showMemoryError(error);
+}
+
 async function chooseFolder() {
-  paint(await window.desk.chooseFolder());
-  if (currentPage === "chat") await loadChat().catch(showChatError);
-  if (currentPage === "memory") await loadMemory().catch(showMemoryError);
-  if (currentPage === "settings") loadTeam();
+  if (choosingFolder) return false;
+  choosingFolder = true;
+  try {
+    const next = await window.desk.chooseFolder();
+    paint(next);
+    if (currentPage === "chat") await loadChat().catch(showChatError);
+    if (currentPage === "memory") await loadMemory().catch(showMemoryError);
+    if (currentPage === "settings") loadTeam();
+    return Boolean(next.folderPicked);
+  } finally {
+    choosingFolder = false;
+  }
 }
 
 $("new-chat").addEventListener("click", async () => {
@@ -543,7 +674,9 @@ $("chat-list").addEventListener("click", async (event) => {
   await window.desk.openChat(button.dataset.id);
   await loadChat();
 });
-for (const id of ["choose-folder", "choose-folder-chat", "choose-folder-settings"]) $(id).addEventListener("click", () => chooseFolder());
+for (const id of ["choose-folder", "choose-folder-chat", "choose-folder-settings"]) {
+  $(id).addEventListener("click", () => chooseFolder().catch(reportFolderError));
+}
 
 document.addEventListener("click", (event) => {
   if (menu.hidden) return;
@@ -571,6 +704,11 @@ document.addEventListener("click", async (event) => {
   }
   const mode = event.target.closest("[data-mode]");
   if (mode) paint(await window.desk.setMode(mode.dataset.mode));
+});
+
+$("chat-mode").addEventListener("change", async (event) => {
+  paint(await window.desk.setMode(event.target.value));
+  message.focus();
 });
 
 $("check-health").addEventListener("click", async () => {

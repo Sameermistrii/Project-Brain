@@ -1,6 +1,6 @@
 # Work so far
 
-Project brain is a shared memory for Cursor, Claude, ChatGPT, and Grok. The person chooses who writes code. That choice is `codeWriter` in `.brain/manifest.json`. Unassigned means nobody edits. Debate stores proposals and does not edit files unless that model is the assigned writer.
+Dexter is a shared memory for Cursor, Claude, ChatGPT, and Grok. The person chooses who writes code. That choice is `codeWriter` in `.brain/manifest.json`. Unassigned means nobody edits. Debate stores proposals and does not edit files unless that model is the assigned writer.
 
 ## Decisions
 

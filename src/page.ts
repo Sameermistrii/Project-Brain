@@ -4,7 +4,7 @@ export function boardPage(): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Project brain</title>
+  <title>Dexter</title>
   <style>
     :root {
       color-scheme: light;
@@ -82,8 +82,8 @@ export function boardPage(): string {
 </head>
 <body>
   <header>
-    <h1 id="title">Project brain</h1>
-    <p class="sub">One project state for Cursor, Claude, ChatGPT, and Grok. You choose who is allowed to write code.</p>
+    <h1 id="title">Dexter</h1>
+    <p class="sub">One project state for Cursor, Claude, ChatGPT, Grok, and Gemini. You choose who is allowed to write code.</p>
   </header>
   <main class="layout">
     <section class="stack">
@@ -110,6 +110,7 @@ export function boardPage(): string {
           <option value="claude">Claude</option>
           <option value="gpt">ChatGPT</option>
           <option value="grok">Grok</option>
+          <option value="gemini">Gemini</option>
         </select>
         <label for="ask-task" style="margin-top: 10px">Task</label>
         <textarea id="ask-task" placeholder="What should this model do with the shared context?"></textarea>
@@ -144,10 +145,12 @@ export function boardPage(): string {
     const writers = [
       ["", "Not chosen"],
       ["me", "I write it"],
+      ["auto", "AI decides"],
       ["cursor", "Cursor"],
       ["claude", "Claude"],
       ["gpt", "ChatGPT"],
-      ["grok", "Grok"]
+      ["grok", "Grok"],
+      ["gemini", "Gemini"]
     ];
     const $ = (id) => document.getElementById(id);
     let pack = "";
@@ -158,7 +161,7 @@ export function boardPage(): string {
 
     async function refresh() {
       const state = await fetch("/api/state").then((res) => res.json());
-      $("title").textContent = state.name || "Project brain";
+      $("title").textContent = state.name || "Dexter";
       $("goal").value = state.goal;
       $("now").value = state.now;
       $("brief").textContent = state.brief;

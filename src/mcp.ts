@@ -15,7 +15,7 @@ import {
 import { compileBrief, compilePack } from "./brief.js";
 import { handoffKindFor, isWriter, writerLabel, type Audience } from "./policy.js";
 
-const audience = z.enum(["cursor", "claude", "gpt", "grok", "me", "any"]).optional();
+const audience = z.enum(["cursor", "claude", "gpt", "grok", "gemini", "me", "any"]).optional();
 
 function projectRoot(): string {
   const root = findProjectRoot(process.cwd());
@@ -71,7 +71,7 @@ server.registerTool(
   {
     description:
       "Set who writes code. Call this only when the user explicitly chooses. Values: cursor, claude, gpt, grok, me, or none.",
-    inputSchema: { writer: z.enum(["cursor", "claude", "gpt", "grok", "me", "none"]) },
+    inputSchema: { writer: z.enum(["cursor", "claude", "gpt", "grok", "gemini", "me", "auto", "none"]) },
   },
   async ({ writer }) => {
     const root = projectRoot();

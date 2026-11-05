@@ -110,7 +110,7 @@ export async function undoCheckpoint(root: string, id: string, force = false): P
 export function describeChange(checkpoint: Checkpoint): string {
   const count = checkpoint.files.length;
   if (!count) return "No files changed.";
-  const names = checkpoint.files.slice(0, 6).map((file) => `${file.path}${file.status === "A" ? " (new)" : file.status === "D" ? " (deleted)" : ""}`);
+  const names = checkpoint.files.slice(0, 6).map((file) => `\`${file.path}\`${file.status === "A" ? " (new)" : file.status === "D" ? " (deleted)" : ""}`);
   const more = count > 6 ? `, and ${count - 6} more` : "";
   return `Changed ${count} file${count === 1 ? "" : "s"}: ${names.join(", ")}${more}.`;
 }
@@ -143,9 +143,9 @@ function git(root: string, args: string[]): Promise<string> {
     ...process.env,
     GIT_DIR: gitDir(root),
     GIT_WORK_TREE: path.resolve(root),
-    GIT_AUTHOR_NAME: "Project Brain",
+    GIT_AUTHOR_NAME: "Dexter",
     GIT_AUTHOR_EMAIL: "undo@project-brain.local",
-    GIT_COMMITTER_NAME: "Project Brain",
+    GIT_COMMITTER_NAME: "Dexter",
     GIT_COMMITTER_EMAIL: "undo@project-brain.local",
   };
   // Keep files byte-for-byte and skip signing from the person's global Git config. The repo is new, so it has no hooks.

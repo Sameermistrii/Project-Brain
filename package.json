@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "tsc && node --test dist/brain.test.js dist/session.test.js dist/chat.test.js dist/serve.test.js dist/accounts.test.js dist/features.test.js",
+    "test": "tsc && node --test dist/brain.test.js dist/session.test.js dist/chat.test.js dist/serve.test.js dist/accounts.test.js dist/features.test.js dist/modes.test.js dist/auto.test.js dist/recent.test.js",
     "start": "npm run build && electron .",
     "brain": "node dist/cli.js",
     "dist": "npm run build && electron-builder",
@@ -23,7 +23,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.2",
+    "dompurify": "^3.4.17",
     "electron-updater": "^6.8.11",
+    "marked": "^16.4.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -32,12 +34,12 @@
     "electron-builder": "^26.18.0",
     "typescript": "^5.9.3"
   },
-  "productName": "Project Brain",
+  "productName": "Dexter",
   "author": "Sameer Mistri",
-  "repository": "github:Sameermistrii/project-brain",
+  "repository": "github:Sameermistrii/Project-Brain",
   "build": {
     "appId": "com.sameermistri.projectbrain",
-    "productName": "Project Brain",
+    "productName": "Dexter",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -57,13 +59,20 @@
             "arm64"
           ]
         }
+      ],
+      "extraResources": [
+        {
+          "from": "build/install-tools.ps1",
+          "to": "install-tools.ps1"
+        }
       ]
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "Project-Brain-Setup-${version}-${arch}.${ext}"
+      "artifactName": "Dexter-Setup-${version}-${arch}.${ext}",
+      "include": "build/installer.nsh"
     },
     "mac": {
       "target": [
@@ -90,7 +99,7 @@
       {
         "provider": "github",
         "owner": "Sameermistrii",
-        "repo": "project-brain"
+        "repo": "Project-Brain"
       }
     ]
   }

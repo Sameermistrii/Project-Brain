@@ -7,7 +7,7 @@
 
 ## Publish with auto-update (GitHub Releases)
 
-1. Create the repository `github.com/Sameermistrii/project-brain` and push this folder to it.
+1. The code is on `github.com/Sameermistrii/Project-Brain`. Releases are published there.
 2. Raise `version` in `package.json` (for example `0.2.0`) and commit.
 3. Push a tag with the same version: `git tag v0.2.0 && git push origin v0.2.0`.
 4. The **Release** workflow builds the Windows and Mac installers on GitHub's machines, runs the tests, and publishes them to GitHub Releases.

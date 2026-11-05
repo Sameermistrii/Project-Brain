@@ -1,18 +1,17 @@
 const writers = [
   ["", "None"],
   ["me", "You"],
+  ["auto", "Auto"],
   ["cursor", "Cursor"],
   ["claude", "Claude"],
   ["gpt", "GPT"],
   ["grok", "Grok"],
-];
-const modes = [
-  ["work", "Work"],
-  ["debate", "Debate"],
+  ["gemini", "Gemini"],
 ];
 const closed = { w: 112, h: 24, r: 12 };
-const bar = { w: 520, h: 210, r: 26 };
-const chat = { w: 520, h: 360, r: 28 };
+// Wide enough for nine "Writes" choices and five sign-in buttons on one line each.
+const bar = { w: 660, h: 210, r: 26 };
+const chat = { w: 660, h: 360, r: 28 };
 
 const wrap = document.getElementById("wrap");
 const body = document.getElementById("body");
@@ -102,17 +101,31 @@ let capturing = false;
 writersEl.innerHTML = writers
   .map(([id, label]) => `<button class="choice" type="button" data-writer="${id}">${label}</button>`)
   .join("");
-modesEl.innerHTML = modes
-  .map(([id, label]) => `<button class="choice mode" type="button" data-mode="${id}">${label}</button>`)
-  .join("");
+// Eight modes do not fit as buttons in the notch, so it uses a compact picker.
+const modeSelect = document.createElement("select");
+modeSelect.className = "mode-select";
+modeSelect.setAttribute("aria-label", "Mode");
+modesEl.replaceChildren(modeSelect);
 
 function paint(state) {
   for (const button of writersEl.querySelectorAll("button")) {
     button.setAttribute("aria-pressed", String((button.dataset.writer || "") === (state.codeWriter || "")));
   }
-  for (const button of modesEl.querySelectorAll("button")) {
-    button.setAttribute("aria-pressed", String(button.dataset.mode === state.mode));
+  const modes = state.modes || [];
+  if (modeSelect.options.length !== modes.length) {
+    modeSelect.replaceChildren(
+      ...modes.map((mode) => {
+        const option = document.createElement("option");
+        option.value = mode.id;
+        option.textContent = mode.label;
+        option.title = mode.summary;
+        return option;
+      }),
+    );
   }
+  modeSelect.value = state.mode;
+  const current = modes.find((mode) => mode.id === state.mode);
+  modeSelect.title = current?.summary || "";
   accountsEl.innerHTML = state.accounts
     .map((account) => {
       const status = account.loggedIn ? "on" : "";
@@ -122,9 +135,15 @@ function paint(state) {
     .join("");
   const folder = state.folder || "";
   document.getElementById("folder").textContent = folder.split(/[\\/]/).filter(Boolean).pop() || "Choose folder";
-  showAsk = state.mode === "debate" || ["cursor", "claude", "gpt", "grok"].includes(state.codeWriter);
-  ask.hidden = !showAsk;
-  task.placeholder = state.mode === "debate" ? "What should they debate?" : `Task for ${state.writerLabel}`;
+  // Only Work needs a model writer; every other mode can always be asked.
+  // The message box is always there. Any two signed-in models are enough; until then it says so.
+  const ready = (state.accounts || []).filter((account) => account.loggedIn && state.enabled?.[account.provider] !== false).length;
+  showAsk = true;
+  ask.hidden = false;
+  task.placeholder =
+    ready < 2
+      ? `Sign in to ${2 - ready} more model${ready === 1 ? "" : "s"} to start. Any of them works.`
+      : `${current?.label ?? "Ask"}: e.g. ${current?.example ?? ""}`;
   layout();
 }
 
@@ -176,7 +195,8 @@ function renderThread(pending) {
   for (const item of messages) {
     const bubble = document.createElement("article");
     bubble.className = `bubble ${item.role === "user" ? "user" : "brain"}`;
-    bubble.textContent = item.text;
+    if (item.role === "user") bubble.textContent = item.text;
+    else bubble.append(window.renderMarkdown(item.text));
     if (item.actions?.length) {
       const row = document.createElement("div");
       row.className = "actions";
@@ -297,10 +317,9 @@ writersEl.addEventListener("click", async (event) => {
   paint(await window.notch.setWriter(button.dataset.writer || null));
 });
 
-modesEl.addEventListener("click", async (event) => {
-  const button = event.target.closest("button");
-  if (!button) return;
-  paint(await window.notch.setMode(button.dataset.mode));
+modeSelect.addEventListener("change", async () => {
+  paint(await window.notch.setMode(modeSelect.value));
+  task.focus();
 });
 
 let signInPoll;

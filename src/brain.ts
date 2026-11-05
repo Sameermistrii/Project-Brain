@@ -2,7 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { isWriter, type Writer } from "./policy.js";
 
-export type BrainMode = "work" | "debate";
+import { isMode, type BrainMode } from "./modes.js";
+
+export type { BrainMode };
 
 export interface Manifest {
   version: 1;
@@ -112,7 +114,8 @@ export function loadBrain(root: string): BrainSnapshot {
     created: raw.created || new Date().toISOString(),
     updated: local.updated || raw.updated || raw.created || new Date().toISOString(),
     codeWriter: isWriter(writer) ? writer : null,
-    mode: mode === "debate" ? "debate" : "work",
+    // Auto is the default: the models pick the mode for each message until the person picks one.
+    mode: isMode(mode) ? mode : "auto",
   };
   return {
     root: path.resolve(root),
@@ -153,7 +156,7 @@ export function setWriter(root: string, writer: Writer | null): Manifest {
   return loadBrain(root).manifest;
 }
 
-const MODEL_KEYS = ["cursor", "claude", "gpt", "grok"] as const;
+const MODEL_KEYS = ["cursor", "claude", "gpt", "grok", "gemini"] as const;
 export type ModelKey = (typeof MODEL_KEYS)[number];
 
 export function enabledModels(root: string): Record<ModelKey, boolean> {
@@ -164,6 +167,7 @@ export function enabledModels(root: string): Record<ModelKey, boolean> {
     claude: raw.enabled?.claude !== false,
     gpt: raw.enabled?.gpt !== false,
     grok: raw.enabled?.grok !== false,
+    gemini: raw.enabled?.gemini !== false,
   };
 }
 

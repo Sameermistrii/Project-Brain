@@ -2,10 +2,12 @@
   "0": "brain.ts",
   "1": "session.ts",
   "8": "features.test.ts",
-  "9": "brain.ts",
+  "9": "chat.ts",
   "15": "build",
   "16": "appRoot",
-  "17": "work",
   "18": "ask",
-  "19": "createWindow"
+  "19": "createWindow",
+  "20": "brain.ts",
+  "21": "markdown.js",
+  "22": "work"
 }

@@ -7,10 +7,14 @@ import { runAsk } from "./ask.js";
 import { initBrain, loadBrain, setMode, setModelEnabled, setWriter } from "./brain.js";
 import { debatePrompt, submitToBrain } from "./session.js";
 
+// Hide every real model tool, so no test ever sends a real (paid) request. PATH stays: the team tests need Git.
+const noTools = fs.mkdtempSync(path.join(os.tmpdir(), "project-brain-notools-"));
+for (const name of ["APPDATA", "LOCALAPPDATA", "USERPROFILE", "HOME", "PROJECT_BRAIN_TOOL_DIRS"]) process.env[name] = noTools;
+
 test("the notch starts in work mode and can switch to debate", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "project-brain-mode-"));
   initBrain(root, "Demo");
-  assert.equal(loadBrain(root).manifest.mode, "work");
+  assert.equal(loadBrain(root).manifest.mode, "auto", "Auto is the default mode");
   setMode(root, "debate");
   assert.equal(loadBrain(root).manifest.mode, "debate");
 });
@@ -20,8 +24,8 @@ test("a switched-off writer is not asked to work", async () => {
   initBrain(root, "Demo");
   setWriter(root, "cursor");
   setModelEnabled(root, "cursor", false);
-  const answer = await submitToBrain(root, "Change the readme.");
-  assert.match(answer.text, /Cursor is switched off in Integrations/);
+  // With no models ready, the app asks for any two instead of stopping on the one that is switched off.
+  await assert.rejects(submitToBrain(root, "Change the readme."), /Sign in to at least 2 models.*Any 2 work/);
 });
 
 test("a one-word debate is refused before any model is asked", async () => {

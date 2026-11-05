@@ -17,13 +17,13 @@ import { ensureGitignore, installCursorIntegration } from "./cursor.js";
 import { handoffKindFor, isWriter, writerLabel, type Audience } from "./policy.js";
 import { startBoard } from "./serve.js";
 
-const help = `project-brain — shared memory for Cursor, Claude, ChatGPT, and Grok
+const help = `Dexter — shared memory for Cursor, Claude, ChatGPT, Grok, and Gemini
 
 You choose who writes code. Until you do, every model is told not to edit files.
 
   init [--name "Project"]     Create .brain in this folder and connect Cursor
   status                      Show the writer, goal, and latest handoff
-  writer <cursor|claude|gpt|grok|me|none>
+  writer <cursor|claude|gpt|grok|gemini|me|auto|none>
   goal --text "..."
   now --text "..."
   decision --text "..." [--why "..."] [--model user]
@@ -77,7 +77,7 @@ async function main(): Promise<void> {
         return;
       }
       if (!isWriter(value)) {
-        throw new Error("Use cursor, claude, gpt, grok, me, or none.");
+        throw new Error("Use cursor, claude, gpt, grok, gemini, me, auto, or none.");
       }
       setWriter(root, value);
       console.log(`Who writes code: ${writerLabel(value)}`);
@@ -135,8 +135,8 @@ async function main(): Promise<void> {
     }
     case "ask": {
       const model = flag(flags, "model") || "";
-      if (model !== "claude" && model !== "gpt" && model !== "grok") {
-        throw new Error("ask needs --model claude, gpt, or grok.");
+      if (model !== "claude" && model !== "gpt" && model !== "grok" && model !== "gemini") {
+        throw new Error("ask needs --model claude, gpt, grok, or gemini.");
       }
       const result = await runAsk(root, model as AskModel, required(flags, "text"));
       console.log(result.answer);
@@ -148,7 +148,7 @@ async function main(): Promise<void> {
     case "serve": {
       const port = Number(flag(flags, "port") || "4317");
       await startBoard(root, port);
-      console.log(`Project brain board: http://127.0.0.1:${port}`);
+      console.log(`Dexter board: http://127.0.0.1:${port}`);
       return;
     }
     default:
@@ -158,7 +158,7 @@ async function main(): Promise<void> {
 }
 
 function audienceOf(value: string): Audience {
-  if (value === "cursor" || value === "claude" || value === "gpt" || value === "grok" || value === "me" || value === "any") {
+  if (value === "cursor" || value === "claude" || value === "gpt" || value === "grok" || value === "gemini" || value === "me" || value === "any") {
     return value;
   }
   throw new Error("--for must be cursor, claude, gpt, grok, me, or any.");

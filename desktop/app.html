@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Project brain</title>
+  <title>Dexter</title>
   <link rel="stylesheet" href="app.css" />
 </head>
 <body>
@@ -10,7 +10,7 @@
     <aside>
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
-        <span>Project brain</span>
+        <span>Dexter</span>
       </div>
       <button class="folder" id="choose-folder" type="button">
         <strong id="folder-name">Folder</strong>
@@ -50,10 +50,24 @@
       </div>
     </aside>
     <main>
-      <section class="page" data-page="home" aria-label="Home"></section>
+      <section class="page scroll" data-page="home" aria-label="Home">
+        <div class="home">
+          <div class="home-cards">
+            <button class="home-card" id="home-open-folder" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/></svg>
+              <span>Open folder</span>
+            </button>
+          </div>
+          <div class="recent-head">
+            <span>Recent chats</span>
+            <button class="recent-all" id="recent-all" type="button" hidden></button>
+          </div>
+          <div class="recent-list" id="recent-list"></div>
+        </div>
+      </section>
       <section class="page welcome" data-page="welcome" hidden>
         <header class="page-head">
-          <h1>Welcome to Project brain</h1>
+          <h1>Welcome to Dexter</h1>
           <p>Four steps. Your AI models will share one memory for this folder, and only the one you choose edits files.</p>
         </header>
         <ol class="steps">
@@ -62,7 +76,7 @@
             <button class="choice" id="setup-choose-folder" type="button">Choose folder</button>
           </li>
           <li data-step="connect">
-            <div><strong>Connect at least one model</strong><span id="setup-connect">Each one signs in with its own account in your browser.</span></div>
+            <div><strong>Connect any two models</strong><span id="setup-connect">Any two work. Each signs in with its own account in your browser, and you can skip the rest.</span></div>
             <button class="choice" type="button" data-go="integrations">Open Integrations</button>
           </li>
           <li data-step="writer">
@@ -96,6 +110,11 @@
             <div class="working-text"><strong id="working-what">Working</strong><span id="working-line">Starting…</span></div>
             <span class="elapsed" id="working-time">0:00</span>
             <button class="stop" id="stop" type="button">Stop</button>
+          </div>
+          <div class="mode-bar">
+            <label for="chat-mode">Mode</label>
+            <select id="chat-mode"></select>
+            <span id="chat-mode-help"></span>
           </div>
           <form class="composer" id="composer">
             <textarea id="message" rows="1" placeholder="Message this folder"></textarea>
@@ -142,7 +161,7 @@
       <section class="page" data-page="settings" hidden>
         <header class="page-head">
           <h1>Settings</h1>
-          <p>Choose who writes the code, and whether they work or debate.</p>
+          <p>Choose who writes the code, and which mode your messages use. Only Work, Debug, and Test can change files, and only through the writer. Choose <strong>Auto</strong> and the models decide who does each task: one builds, another reviews.</p>
         </header>
         <div class="setting folder-row">
           <span>Folder</span>
@@ -157,7 +176,10 @@
         </div>
         <div class="setting">
           <span>Mode</span>
-          <div class="choices" id="modes"></div>
+          <div class="mode-pick">
+            <div class="choices" id="modes"></div>
+            <dl class="mode-guide" id="mode-guide"></dl>
+          </div>
         </div>
         <div class="setting folder-row">
           <span>Team</span>
@@ -170,6 +192,9 @@
       </section>
     </main>
   </div>
+  <script src="../node_modules/marked/lib/marked.umd.js"></script>
+  <script src="../node_modules/dompurify/dist/purify.min.js"></script>
+  <script src="markdown.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -8,10 +8,14 @@ import { claudeStream } from "./accounts.js";
 import { addDecision, addHandoff, deleteMemory, initBrain, loadBrain, searchBrain, setMode, setSummary, setWriter, updateDecision } from "./brain.js";
 import { compileBrief } from "./brief.js";
 import { appendChat, listChat } from "./chat.js";
-import { beginCheckpoint, DirtyError, finishCheckpoint, lastUndoable } from "./checkpoints.js";
+import { beginCheckpoint, describeChange, DirtyError, finishCheckpoint, lastUndoable } from "./checkpoints.js";
 import { applyProposal, undoChange } from "./session.js";
 import { syncMemory, teamStatus } from "./team.js";
 import { isLimitError, recordUsage, usageSummary } from "./usage.js";
+
+// Hide every real model tool, so no test ever sends a real (paid) request. PATH stays: the team tests need Git.
+const noTools = fs.mkdtempSync(path.join(os.tmpdir(), "project-brain-notools-"));
+for (const name of ["APPDATA", "LOCALAPPDATA", "USERPROFILE", "HOME", "PROJECT_BRAIN_TOOL_DIRS"]) process.env[name] = noTools;
 
 function tempProject(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "project-brain-features-"));
@@ -39,6 +43,7 @@ test("undo puts edited, new, and deleted files back", async () => {
   write(root, "src/new.ts", "export {}");
   fs.rmSync(path.join(root, "gone.txt"));
   const change = await finishCheckpoint(root, open);
+  assert.equal(describeChange({ ...change, files: [{ status: "A", path: "notes.md" }] }), "Changed 1 file: `notes.md` (new).");
   assert.deepEqual(change.files.map((file) => `${file.status} ${file.path}`).sort(), ["A src/new.ts", "D gone.txt", "M a.txt"]);
   assert.equal(lastUndoable(root)?.id, change.id);
 

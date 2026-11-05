@@ -25,6 +25,8 @@ const api = {
   onHealth: (fn) => ipcRenderer.on("health", (_event, items) => fn(items)),
   close: () => ipcRenderer.invoke("close"),
   chat: () => ipcRenderer.invoke("chat"),
+  home: () => ipcRenderer.invoke("home"),
+  openRecent: (folder, id) => ipcRenderer.invoke("open-recent", folder, id),
   newChat: () => ipcRenderer.invoke("new-chat"),
   openChat: (id) => ipcRenderer.invoke("open-chat", id),
   setEnabled: (provider, enabled) => ipcRenderer.invoke("set-enabled", provider, enabled),

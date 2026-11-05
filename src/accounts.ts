@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-export type Provider = "cursor" | "claude" | "gpt" | "grok";
+export type Provider = "cursor" | "claude" | "gpt" | "grok" | "gemini";
 
 export interface AccountState {
   provider: Provider;
@@ -46,6 +46,7 @@ const LABELS: Record<Provider, string> = {
   claude: "Claude",
   gpt: "ChatGPT",
   grok: "Grok",
+  gemini: "Gemini",
 };
 
 // Each check starts up to four programs, so the window reuses a recent answer.
@@ -64,11 +65,12 @@ export function forgetAccountStates(): void {
 }
 
 async function readAccountStates(): Promise<AccountState[]> {
-  const [cursor, claude, codex, grok] = await Promise.all([
+  const [cursor, claude, codex, grok, gemini] = await Promise.all([
     Promise.resolve(cursorAgentBin()),
     Promise.resolve(claudeBin() || null).then((found) => found || resolveBin("claude")),
     Promise.resolve(codexBin() || null).then((found) => found || resolveBin("codex")),
     Promise.resolve(grokBin() || null).then((found) => found || resolveBin("grok")),
+    Promise.resolve(geminiBin() || null).then((found) => found || resolveBin("gemini")),
   ]);
   const [cursorIn, claudeIn, codexIn, grokIn] = await Promise.all([
     cursor ? cursorLoggedIn(cursor) : Promise.resolve(false),
@@ -76,11 +78,13 @@ async function readAccountStates(): Promise<AccountState[]> {
     Promise.resolve(Boolean(codex) && hasAuth("gpt")),
     Promise.resolve(Boolean(grok) && hasAuth("grok")),
   ]);
+  const geminiIn = Boolean(gemini) && geminiSignedIn();
   const states: AccountState[] = [
     { provider: "cursor", label: LABELS.cursor, installed: Boolean(cursor), loggedIn: cursorIn },
     { provider: "claude", label: LABELS.claude, installed: Boolean(claude), loggedIn: claudeIn },
     { provider: "gpt", label: LABELS.gpt, installed: Boolean(codex), loggedIn: codexIn },
     { provider: "grok", label: LABELS.grok, installed: Boolean(grok), loggedIn: grokIn },
+    { provider: "gemini", label: LABELS.gemini, installed: Boolean(gemini), loggedIn: geminiIn },
   ];
   for (const state of states) {
     const problem = signInProblems.get(state.provider);
@@ -90,7 +94,7 @@ async function readAccountStates(): Promise<AccountState[]> {
 }
 
 export function isProvider(value: unknown): value is Provider {
-  return value === "cursor" || value === "claude" || value === "gpt" || value === "grok";
+  return value === "cursor" || value === "claude" || value === "gpt" || value === "grok" || value === "gemini";
 }
 
 /** What sign-in would download and install first, or null when nothing is needed. Claude has no installer here. */
@@ -98,6 +102,7 @@ export function installNeeded(provider: Provider): { label: string; tool: string
   if (provider === "claude" || installedBin(provider)) return null;
   if (provider === "cursor") return { label: LABELS.cursor, tool: "the Cursor agent", site: "cursor.com" };
   if (provider === "gpt") return { label: LABELS.gpt, tool: "OpenAI Codex", site: "chatgpt.com" };
+  if (provider === "gemini") return { label: LABELS.gemini, tool: "Google's Gemini CLI (needs Node.js 20 or newer)", site: "npmjs.com" };
   return { label: LABELS.grok, tool: "Grok Build", site: "x.ai" };
 }
 
@@ -108,6 +113,7 @@ export function beginSignIn(provider: Provider): string {
   if ((provider === "gpt" || provider === "grok") && hasAuth(provider) && installedBin(provider)) {
     return `${LABELS[provider]} is already signed in.`;
   }
+  if (provider === "gemini") return beginGeminiSignIn();
   if (!WINDOWS) return beginSignInUnix(provider);
   const dir = path.join(os.tmpdir(), "project-brain-signin");
   fs.mkdirSync(dir, { recursive: true });
@@ -335,14 +341,78 @@ const UNIX_INSTALL: Record<Exclude<Provider, "claude">, string> = {
   cursor: "curl -fsS https://cursor.com/install | bash",
   gpt: "curl -fsSL https://chatgpt.com/codex/install.sh | sh",
   grok: "curl -fsSL https://x.ai/cli/install.sh | bash",
+  gemini: "npm install -g @google/gemini-cli",
 };
 const LOGIN_ARGS: Record<Provider, string[]> = {
   cursor: ["login"],
   claude: ["auth", "login"],
   gpt: ["login"],
   grok: ["login", "--oauth"],
+  // Gemini CLI has no login command; beginGeminiSignIn runs one small question instead, which triggers its login.
+  gemini: [],
 };
-const BIN_NAMES: Record<Provider, string> = { cursor: "cursor-agent", claude: "claude", gpt: "codex", grok: "grok" };
+const BIN_NAMES: Record<Provider, string> = { cursor: "cursor-agent", claude: "claude", gpt: "codex", grok: "grok", gemini: "gemini" };
+
+/** Gemini CLI keeps its Google login in the system keychain, so this app remembers its own successful sign-in. */
+function geminiMarker(): string {
+  return path.join(os.homedir(), ".project-brain", "gemini-signed-in");
+}
+
+function geminiSignedIn(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY) || fs.existsSync(geminiMarker());
+}
+
+/**
+ * Picks "Sign in with Google" in Gemini CLI's settings when no sign-in method is chosen yet, so a run without a
+ * terminal opens Google's login page. An existing choice, or a settings file this cannot read, is left alone.
+ */
+export function chooseGeminiGoogleLogin(file = path.join(os.homedir(), ".gemini", "settings.json")): boolean {
+  let settings: Record<string, any> = {};
+  if (fs.existsSync(file)) {
+    try {
+      settings = JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      return false;
+    }
+  }
+  if (settings.security?.auth?.selectedType) return true;
+  settings.security = { ...(settings.security ?? {}), auth: { ...(settings.security?.auth ?? {}), selectedType: "oauth-personal" } };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(settings, null, 2)}\n`);
+  return true;
+}
+
+/** Gemini sign-in, on Windows and Mac alike: install with npm if needed, then one tiny question triggers Google's login. */
+function beginGeminiSignIn(): string {
+  signInProblems.delete("gemini");
+  void (async () => {
+    try {
+      if (installNeeded("gemini")) {
+        const install = WINDOWS
+          ? await run("npm.cmd", ["install", "-g", "@google/gemini-cli"], { timeoutMs: 10 * 60_000 })
+          : await run("/bin/bash", ["-lc", UNIX_INSTALL.gemini], { timeoutMs: 10 * 60_000 });
+        if (install.code !== 0) throw new Error(`Installing failed. Gemini CLI needs Node.js 20 or newer. ${clipLine(install.stderr || install.stdout)}`);
+      }
+      const bin = geminiBin() || (await resolveBin("gemini"));
+      if (!bin) throw new Error("Gemini CLI was not found after installing.");
+      if (!chooseGeminiGoogleLogin()) throw new Error("Could not read Gemini's settings file. Open Gemini CLI once and choose Sign in with Google.");
+      // Gemini asks "Do you want to continue? [Y/n]" before it opens Google's login page itself. Pressing Connect is that yes.
+      const login = await run(bin, ["-p", "Reply with the single word OK.", "--approval-mode", "plan", "--output-format", "json", "--skip-trust"], {
+        cwd: os.homedir(),
+        stdin: "y\n",
+        timeoutMs: 15 * 60_000,
+      });
+      if (login.code !== 0) throw new Error(clipLine(login.stderr || login.stdout) || "Sign-in did not finish.");
+      fs.mkdirSync(path.dirname(geminiMarker()), { recursive: true });
+      fs.writeFileSync(geminiMarker(), new Date().toISOString());
+    } catch (error) {
+      signInProblems.set("gemini", error instanceof Error ? error.message : "Sign-in did not finish.");
+    } finally {
+      forgetAccountStates();
+    }
+  })();
+  return "Opening the browser for Gemini. The first sign-in takes a minute.";
+}
 
 /**
  * Mac and Linux sign-in: install with the vendor's own script if needed, then run the tool's login.
@@ -433,6 +503,8 @@ export async function signOutModels(): Promise<string> {
   if (codex) jobs.push(run(codex, ["logout"], { timeoutMs: 20_000 }));
   const grok = grokBin() || (await resolveBin("grok"));
   if (grok) jobs.push(run(grok, ["logout"], { timeoutMs: 20_000 }));
+  // Gemini CLI has no sign-out command; this disconnects it from the app. Its own login stays in Gemini CLI.
+  fs.rmSync(geminiMarker(), { force: true });
   const cursor = cursorAgentBin();
   if (cursor) jobs.push(run(cursor, ["logout"], { timeoutMs: 20_000 }));
   await Promise.all(jobs);
@@ -468,6 +540,7 @@ export async function askModel(
     if (provider === "cursor") answer = await askCursor(file, allowEdits, cwd, timeoutMs, progress);
     else if (provider === "claude") answer = await askClaude(prompt, allowEdits, cwd, timeoutMs, progress);
     else if (provider === "gpt") answer = await askCodex(file, allowEdits, cwd, timeoutMs, progress);
+    else if (provider === "gemini") answer = await askGemini(prompt, allowEdits, cwd, timeoutMs, progress);
     else answer = await askGrok(file, allowEdits, cwd, timeoutMs, progress);
     usageListener?.({ provider, ok: true, tokens: answer.tokens, costUsd: answer.costUsd });
     return answer.text;
@@ -603,6 +676,89 @@ async function askGrok(promptFile: string, allowEdits: boolean, cwd: string, tim
   return { text: trim(result.stdout) };
 }
 
+async function askGemini(prompt: string, allowEdits: boolean, cwd: string, timeoutMs: number, progress: Progress): Promise<Answer> {
+  const bin = geminiBin() || (await resolveBin("gemini"));
+  if (!bin) throw new Error("Sign in to Gemini from the notch first.");
+  // plan is Gemini's read-only mode; auto_edit lets it edit files. --skip-trust is like Cursor's --trust: without it,
+  // Gemini refuses to work without a terminal in a folder it was never told to trust.
+  const args = ["-p", "Follow the instructions above.", "--output-format", "stream-json", "--approval-mode", allowEdits ? "auto_edit" : "plan", "--skip-trust"];
+  const stream = geminiStream(progress);
+  const result = await run(bin, args, { cwd, stdin: prompt, timeoutMs, onOutput: (text, from) => from === "stdout" && stream.feed(text) });
+  stream.flush();
+  if (result.stopped) throw new StoppedError();
+  const final = stream.result();
+  if (final.isError || (result.code !== 0 && !final.text)) {
+    const message = final.error || trim(result.stderr) || "Gemini did not answer.";
+    // A login that expired or was removed in Gemini CLI: show it as signed out so Connect is offered again.
+    if (/auth|sign in|log in|login|credential|consent/i.test(message)) {
+      fs.rmSync(geminiMarker(), { force: true });
+      forgetAccountStates();
+    }
+    throw new Error(message);
+  }
+  return { text: final.text, tokens: final.tokens };
+}
+
+/** Reads Gemini CLI's stream-json: assistant text arrives in pieces, tool calls as they start, totals at the end. */
+export function geminiStream(progress: Progress) {
+  let buffer = "";
+  let text = "";
+  let error = "";
+  let isError = false;
+  let tokens: number | undefined;
+  const line = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+    let event: any;
+    try {
+      event = JSON.parse(trimmed);
+    } catch {
+      return;
+    }
+    if (event.type === "message" && event.role === "assistant" && typeof event.content === "string") {
+      text += event.content;
+      const last = text.trim().split(/\r?\n/).filter((item) => item.trim()).pop();
+      if (last) progress(last.length > 160 ? `${last.slice(0, 159)}…` : last);
+    } else if (event.type === "tool_use") {
+      progress(describeGeminiTool(String(event.tool_name ?? ""), event.parameters ?? {}));
+    } else if (event.type === "error" && event.severity === "error") {
+      error = String(event.message ?? "");
+    } else if (event.type === "result") {
+      if (event.status === "error") {
+        isError = true;
+        error = String(event.error?.message ?? error ?? "");
+      }
+      const total = Number(event.stats?.total_tokens ?? 0);
+      tokens = total > 0 ? total : undefined;
+    }
+  };
+  return {
+    feed(chunk: string) {
+      buffer += chunk;
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() ?? "";
+      lines.forEach(line);
+    },
+    flush() {
+      line(buffer);
+      buffer = "";
+    },
+    result() {
+      return { text: text.trim(), isError, error, tokens };
+    },
+  };
+}
+
+function describeGeminiTool(name: string, input: Record<string, unknown>): string {
+  const file = typeof input.file_path === "string" ? path.basename(input.file_path) : "";
+  if (name === "read_file" && file) return `Reading ${file}`;
+  if (name === "replace" && file) return `Editing ${file}`;
+  if (name === "write_file" && file) return `Writing ${file}`;
+  if (name === "run_shell_command" && typeof input.command === "string") return `Running ${firstLine(input.command)}`;
+  if ((name === "grep_search" || name === "glob") && typeof input.pattern === "string") return `Searching for ${input.pattern}`;
+  return `Using ${name || "a tool"}`;
+}
+
 async function askCursor(file: string, allowEdits: boolean, cwd: string, timeoutMs: number, progress: Progress): Promise<Answer> {
   const bin = cursorAgentBin();
   if (!bin) throw new Error("Sign in to Cursor from the notch first.");
@@ -647,6 +803,7 @@ function installedBin(provider: Provider): string | null {
   if (provider === "claude") return claudeBin();
   if (provider === "gpt") return codexBin();
   if (provider === "grok") return grokBin();
+  if (provider === "gemini") return geminiBin();
   return null;
 }
 
@@ -702,6 +859,12 @@ function codexModel(): string | null {
   }
 }
 
+function geminiBin(): string | null {
+  if (!WINDOWS) return unixBin("gemini");
+  const appData = process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming");
+  return firstExisting(path.join(appData, "npm"), ["gemini.cmd"]);
+}
+
 function grokBin(): string | null {
   return firstExisting(path.join(os.homedir(), ".grok", "bin"), WINDOWS ? ["grok.exe", "grok.cmd"] : ["grok"]) || unixBin("grok");
 }
@@ -719,8 +882,9 @@ async function resolveBin(name: string): Promise<string | null> {
   for (const candidate of [path.join(home, `${name}.cmd`), path.join(home, `${name}.exe`), path.join(home, name)]) {
     if (fs.existsSync(candidate)) return candidate;
   }
+  // Tests set this so they never reach the real, signed-in tools on PATH, on any platform.
+  if (process.env.PROJECT_BRAIN_TOOL_DIRS !== undefined) return null;
   if (!WINDOWS) {
-    if (process.env.PROJECT_BRAIN_TOOL_DIRS !== undefined) return null;
     // A login shell picks up Homebrew and npm paths that a Mac app does not inherit. Names here are fixed, never user input.
     const found = await run("/bin/bash", ["-lc", `command -v ${name}`], { timeoutMs: 8_000 });
     const hit = found.stdout.trim().split(/\r?\n/)[0];
@@ -836,12 +1000,13 @@ export interface ToolHealth {
   detail: string;
 }
 
-/** The options Project Brain passes to each tool. If a tool update drops one, asking that model will fail. */
+/** The options Dexter passes to each tool. If a tool update drops one, asking that model will fail. */
 const NEEDED_FLAGS: Record<Provider, { args: string[]; flags: string[] }> = {
   claude: { args: ["--help"], flags: ["--output-format", "--add-dir", "--permission-mode", "--verbose"] },
   gpt: { args: ["exec", "--help"], flags: ["--skip-git-repo-check", "--cd", "--sandbox"] },
   grok: { args: ["--help"], flags: ["--prompt-file", "--output-format", "--max-turns", "--disallowed-tools", "--sandbox"] },
   cursor: { args: ["--help"], flags: ["--workspace", "--trust", "--force"] },
+  gemini: { args: ["--help"], flags: ["--prompt", "--output-format", "--approval-mode", "--skip-trust"] },
 };
 
 /** Flags from `needed` that a tool's --help text does not mention. */
@@ -849,7 +1014,7 @@ export function missingFlags(help: string, needed: string[]): string[] {
   return needed.filter((flag) => !new RegExp(`(^|[\\s,(\\[])${flag.replace(/[-]/g, "\\-")}(?=$|[\\s,=<\\[)])`, "m").test(help));
 }
 
-/** Checks each model's tool: installed, signed in, and still accepting the options Project Brain uses. */
+/** Checks each model's tool: installed, signed in, and still accepting the options Dexter uses. */
 export async function toolHealth(): Promise<ToolHealth[]> {
   forgetAccountStates();
   const states = await accountStates();
@@ -865,7 +1030,7 @@ export async function toolHealth(): Promise<ToolHealth[]> {
           return {
             ...base,
             state: "needs-update",
-            detail: `This version does not list ${missing.join(", ")}. Update ${state.label}'s tool. If it is already current, Project Brain needs an update.`,
+            detail: `This version does not list ${missing.join(", ")}. Update ${state.label}'s tool. If it is already current, Dexter needs an update.`,
           };
         }
       }

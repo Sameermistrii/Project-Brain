@@ -4,7 +4,7 @@ import { compileBrief } from "./brief.js";
 import { askSystem, parseHandoffBlock, visibleAnswer } from "./handoff.js";
 import { handoffKindFor } from "./policy.js";
 
-export type AskModel = "claude" | "gpt" | "grok";
+export type AskModel = "claude" | "gpt" | "grok" | "gemini";
 
 export interface AskResult {
   model: AskModel;

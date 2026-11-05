@@ -38,7 +38,7 @@ export function compileBrief(snap: BrainSnapshot, audience: Audience = "any"): s
 export function compilePack(snap: BrainSnapshot): string {
   return [
     "PROJECT CONTEXT",
-    "Paste this into Claude, ChatGPT, Grok, or Cursor. It is the shared project state.",
+    "Paste this into Claude, ChatGPT, Grok, Gemini, or Cursor. It is the shared project state.",
     "",
     compileBrief(snap, "any"),
   ].join("\n");

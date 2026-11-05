@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, screen } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, screen, shell } from "electron";
 import updater from "electron-updater";
 import fs from "node:fs";
 import os from "node:os";
@@ -24,8 +24,10 @@ import {
 } from "../dist/brain.js";
 import { appendChat, createThread, currentThreadId, listChat, listThreads, openThread } from "../dist/chat.js";
 import { DirtyError, hasGit, lastUndoable } from "../dist/checkpoints.js";
+import { isMode, MODES } from "../dist/modes.js";
 import { writerLabel } from "../dist/policy.js";
 import { applyProposal, latestDebateId, submitToBrain, summarizeMemory, undoChange } from "../dist/session.js";
+import { recentChats, rememberFolder } from "../dist/recent.js";
 import { syncMemory, teamStatus } from "../dist/team.js";
 import { recordUsage, usageSummary } from "../dist/usage.js";
 
@@ -151,6 +153,21 @@ async function refreshHealth() {
   return health;
 }
 
+/** Links in replies open in the person's browser. The app windows never navigate away from their own page. */
+function guardLinks(target) {
+  const openOutside = (url) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+  };
+  target.webContents.setWindowOpenHandler(({ url }) => {
+    openOutside(url);
+    return { action: "deny" };
+  });
+  target.webContents.on("will-navigate", (event, url) => {
+    event.preventDefault();
+    openOutside(url);
+  });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     ...notchBounds(),
@@ -175,6 +192,7 @@ function createWindow() {
   win.setAlwaysOnTop(true, "screen-saver");
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.setIgnoreMouseEvents(true, { forward: true });
+  guardLinks(win);
   win.loadFile(path.join(here, "notch.html"));
 }
 
@@ -189,7 +207,7 @@ function createAppWindow() {
     minHeight: 560,
     x: Math.round(area.x + (area.width - width) / 2),
     y: Math.round(area.y + (area.height - height) / 2),
-    title: "Project brain",
+    title: "Dexter",
     backgroundColor: "#101010",
     autoHideMenuBar: true,
     show: false,
@@ -201,6 +219,7 @@ function createAppWindow() {
     },
   });
   appWin.once("ready-to-show", () => appWin.show());
+  guardLinks(appWin);
   appWin.loadFile(path.join(here, "app.html"));
 }
 
@@ -214,6 +233,8 @@ async function snapshot() {
     codeWriter: brain.manifest.codeWriter,
     writerLabel: writerLabel(brain.manifest.codeWriter),
     mode: brain.manifest.mode,
+    // What each mode does, for the mode pickers. The instructions the models get stay in the engine.
+    modes: MODES.map(({ id, label, runner, apply, summary, example }) => ({ id, label, runner, apply, summary, example })),
     accounts,
     enabled: enabledModels(root),
     profile: { name: profileName },
@@ -246,6 +267,53 @@ function dialogParent() {
   return appWin && !appWin.isDestroyed() ? appWin : null;
 }
 
+function pickFolderWindows(defaultPath) {
+  const script = `
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
+$OutputEncoding = [Console]::OutputEncoding
+Add-Type -AssemblyName System.Windows.Forms
+[System.Windows.Forms.Application]::EnableVisualStyles()
+$owner = New-Object System.Windows.Forms.Form
+$owner.TopMost = $true
+$owner.ShowInTaskbar = $false
+$owner.Opacity = 0
+$owner.Show()
+$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+$dialog.Description = 'Choose a folder'
+$dialog.ShowNewFolderButton = $true
+$dialog.UseDescriptionForTitle = $true
+if ($env:BRAIN_FOLDER -and (Test-Path -LiteralPath $env:BRAIN_FOLDER)) {
+  $dialog.SelectedPath = $env:BRAIN_FOLDER
+}
+$ok = $dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK
+$owner.Close()
+if ($ok -and $dialog.SelectedPath -and (Test-Path -LiteralPath $dialog.SelectedPath -PathType Container)) {
+  $bytes = [Text.Encoding]::UTF8.GetBytes($dialog.SelectedPath)
+  [Console]::Out.Write([Convert]::ToBase64String($bytes))
+}
+`;
+  return new Promise((resolve, reject) => {
+    execFile(
+      "powershell.exe",
+      ["-NoProfile", "-STA", "-Command", script],
+      { windowsHide: true, env: { ...process.env, BRAIN_FOLDER: defaultPath || "" } },
+      (error, stdout) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        const encoded = String(stdout || "").trim();
+        if (!encoded) {
+          resolve(null);
+          return;
+        }
+        resolve(Buffer.from(encoded, "base64").toString("utf8"));
+      },
+    );
+  });
+}
+
 async function ask(options) {
   const parent = dialogParent();
   const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options);
@@ -274,7 +342,9 @@ function startUpdates() {
 
 app.whenReady().then(() => {
   // A fresh copy has no .brain yet; the app settings need one.
-  initBrain(appRoot(), "Project brain");
+  initBrain(appRoot(), "Dexter");
+  // Home lists chats from every folder opened here, starting with the current one.
+  writeAppConfig({ recentFolders: rememberFolder(readAppConfig().recentFolders, workRoot()) });
   setUsageListener((event) => {
     try {
       recordUsage(appRoot(), event);
@@ -297,7 +367,7 @@ app.whenReady().then(() => {
     return snapshot();
   });
   ipcMain.handle("set-mode", (_event, mode) => {
-    setMode(workRoot(), mode === "debate" ? "debate" : "work");
+    setMode(workRoot(), isMode(mode) ? mode : "work");
     return snapshot();
   });
   ipcMain.handle("connect", async (_event, provider) => {
@@ -311,13 +381,24 @@ app.whenReady().then(() => {
         cancelId: 1,
         title: `Sign in to ${install.label}`,
         message: `${install.label} needs ${install.tool} to sign in. It is not installed yet.`,
-        detail: `Project brain will download it from ${install.site} and install it for your user account. This takes about a minute.`,
+        detail: `Dexter will download it from ${install.site} and install it for your user account. This takes about a minute.`,
       });
       if (response !== 0) return "Nothing was installed.";
     }
     return beginSignIn(provider);
   });
   ipcMain.handle("chat", () => chatState());
+  ipcMain.handle("home", () => ({ chats: recentChats(readAppConfig().recentFolders ?? [workRoot()]) }));
+  ipcMain.handle("open-recent", (_event, folder, id) => {
+    // Only folders this app opened before can be reopened from Home.
+    const known = (readAppConfig().recentFolders ?? []).map((item) => path.resolve(item).toLowerCase());
+    const wanted = path.resolve(String(folder ?? ""));
+    if (!known.includes(wanted.toLowerCase())) throw new Error("That folder is not in your recent list.");
+    setAccessFolder(appRoot(), wanted);
+    writeAppConfig({ recentFolders: rememberFolder(readAppConfig().recentFolders, wanted) });
+    openThread(workRoot(), String(id ?? ""));
+    return snapshot();
+  });
   ipcMain.handle("new-chat", () => {
     createThread(workRoot());
     return chatState();
@@ -326,17 +407,34 @@ app.whenReady().then(() => {
     openThread(workRoot(), String(id ?? ""));
     return chatState();
   });
-  ipcMain.handle("choose-folder", async () => {
-    const root = appRoot();
-    const options = {
-      title: "Choose a folder",
-      defaultPath: accessFolder(root),
-      properties: ["openDirectory", "createDirectory"],
-    };
-    const parent = dialogParent();
-    const picked = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
-    if (!picked.canceled && picked.filePaths[0]) setAccessFolder(root, picked.filePaths[0]);
-    return snapshot();
+  let folderDialog = null;
+  ipcMain.handle("choose-folder", () => {
+    if (folderDialog) return folderDialog;
+    folderDialog = (async () => {
+      const root = appRoot();
+      const options = {
+        title: "Choose a folder",
+        defaultPath: accessFolder(root),
+        properties: ["openDirectory", "createDirectory"],
+      };
+      let chosen = null;
+      if (process.platform === "win32") {
+        chosen = await pickFolderWindows(accessFolder(root));
+      } else {
+        const parent = dialogParent();
+        const picked = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+        if (!picked.canceled && picked.filePaths[0]) chosen = picked.filePaths[0];
+      }
+      const folderPicked = Boolean(chosen);
+      if (folderPicked) {
+        setAccessFolder(root, chosen);
+        writeAppConfig({ recentFolders: rememberFolder(readAppConfig().recentFolders, chosen) });
+      }
+      return { ...(await snapshot()), folderPicked };
+    })();
+    return folderDialog.finally(() => {
+      folderDialog = null;
+    });
   });
   ipcMain.handle("set-enabled", (_event, provider, enabled) => {
     if (!isProvider(provider)) throw new Error("Unknown model.");

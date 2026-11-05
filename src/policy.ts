@@ -1,4 +1,5 @@
-export const WRITERS = ["cursor", "claude", "gpt", "grok", "me"] as const;
+/** "auto": the app picks a builder and a reviewer for each task among the signed-in models. */
+export const WRITERS = ["cursor", "claude", "gpt", "grok", "gemini", "me", "auto"] as const;
 
 export type Writer = (typeof WRITERS)[number];
 
@@ -19,8 +20,12 @@ export function writerLabel(writer: Writer | null): string {
       return "ChatGPT";
     case "grok":
       return "Grok";
+    case "gemini":
+      return "Gemini";
     case "me":
       return "You";
+    case "auto":
+      return "Auto";
     default:
       return "Nobody yet";
   }
@@ -30,8 +35,15 @@ export function writerPolicy(writer: Writer | null, audience: Audience): string 
   if (!writer) {
     return [
       "Who writes code: not chosen.",
-      "The user decides who writes code. Do not create, edit, or delete project files until the user picks Cursor, Claude, ChatGPT, Grok, or themselves.",
+      "The user decides who writes code. Do not create, edit, or delete project files until the user picks Cursor, Claude, ChatGPT, Grok, Gemini, Auto, or themselves.",
       "Answer with a proposal only, then record a handoff.",
+    ].join("\n");
+  }
+
+  if (writer === "auto") {
+    return [
+      "Who writes code: the app picks a model for each task.",
+      "Only a model whose task message says it may edit files can change them. Otherwise do not create, edit, or delete project files; propose changes instead.",
     ].join("\n");
   }
 

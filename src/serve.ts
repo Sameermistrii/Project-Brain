@@ -62,7 +62,7 @@ async function route(root: string, req: http.IncomingMessage, res: http.ServerRe
     } else if (isWriter(writer)) {
       setWriter(root, writer);
     } else {
-      send(res, 400, { error: "Choose Cursor, Claude, ChatGPT, Grok, yourself, or not chosen." });
+      send(res, 400, { error: "Choose Cursor, Claude, ChatGPT, Grok, Gemini, Auto, yourself, or not chosen." });
       return;
     }
     send(res, 200, state(root));
@@ -89,8 +89,8 @@ async function route(root: string, req: http.IncomingMessage, res: http.ServerRe
   }
   if (url.pathname === "/api/ask") {
     const model = String(body.model ?? "");
-    if (model !== "claude" && model !== "gpt" && model !== "grok") {
-      send(res, 400, { error: "Pick Claude, ChatGPT, or Grok." });
+    if (model !== "claude" && model !== "gpt" && model !== "grok" && model !== "gemini") {
+      send(res, 400, { error: "Pick Claude, ChatGPT, Grok, or Gemini." });
       return;
     }
     try {

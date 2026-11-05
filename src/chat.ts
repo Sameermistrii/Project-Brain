@@ -5,7 +5,7 @@ import { brainDir } from "./brain.js";
 /** A button under a reply: Undo a writer's change, or Apply one model's debate proposal. */
 export type ChatAction =
   | { kind: "undo"; checkpoint: string }
-  | { kind: "apply"; debate: string; provider: "cursor" | "claude" | "gpt" | "grok"; label: string };
+  | { kind: "apply"; debate: string; provider: "cursor" | "claude" | "gpt" | "grok" | "gemini"; label: string };
 
 export interface ChatMessage {
   id: string;
