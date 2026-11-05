@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Project brain</title>
+  <link rel="stylesheet" href="notch.css" />
+</head>
+<body>
+  <div class="wrap" id="wrap">
+    <span class="sh l"></span>
+    <span class="sh r"></span>
+    <div class="body" id="body">
+      <div class="mark" aria-hidden="true"><i></i><i></i></div>
+      <div class="panel" id="panel">
+        <div class="row">
+          <span class="label">Writes</span>
+          <div class="choices" id="writers"></div>
+          <button class="x" id="close" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="row">
+          <span class="label">Folder</span>
+          <button class="choice folder" id="folder" type="button">Choose folder</button>
+        </div>
+        <div class="row">
+          <span class="label">Mode</span>
+          <div class="choices" id="modes"></div>
+          <div class="accounts" id="accounts"></div>
+        </div>
+        <div class="thread" id="thread" hidden>
+          <div class="thread-inner" id="thread-inner"></div>
+        </div>
+        <form class="ask" id="ask" hidden>
+          <input id="task" type="text" placeholder="What should they debate?" />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script src="notch.js"></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Project brain</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <span>Project brain</span>
+      </div>
+      <button class="folder" id="choose-folder" type="button">
+        <strong id="folder-name">Folder</strong>
+        <span>Choose folder</span>
+      </button>
+      <nav id="nav" aria-label="Pages">
+        <button type="button" data-page="home" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+          Home
+        </button>
+        <button type="button" data-page="chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7A2.5 2.5 0 0 1 16.5 16H9l-4 3.2V6.5z"/></svg>
+          Chat
+        </button>
+        <button type="button" data-page="memory">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6zM9 9h6M9 13h6M9 17h4"/></svg>
+          Memory
+        </button>
+        <button type="button" data-page="integrations">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3.5h6V7h3.5v6H15v7.5H9V13H5.5V7H9z"/></svg>
+          Integrations
+        </button>
+      </nav>
+      <div class="user-wrap">
+        <div class="menu" id="menu" hidden>
+          <button type="button" id="open-settings">Settings</button>
+          <button type="button" id="logout">Logout</button>
+          <p class="menu-note" id="menu-note" hidden></p>
+        </div>
+        <button class="user" id="user" type="button" aria-haspopup="menu" aria-expanded="false">
+          <span class="avatar" id="avatar" aria-hidden="true">Y</span>
+          <span class="who">
+            <strong id="user-name">You</strong>
+            <span>This computer</span>
+          </span>
+        </button>
+      </div>
+    </aside>
+    <main>
+      <section class="page" data-page="home" aria-label="Home"></section>
+      <section class="page welcome" data-page="welcome" hidden>
+        <header class="page-head">
+          <h1>Welcome to Project brain</h1>
+          <p>Four steps. Your AI models will share one memory for this folder, and only the one you choose edits files.</p>
+        </header>
+        <ol class="steps">
+          <li data-step="folder">
+            <div><strong>Choose a project folder</strong><span id="setup-folder">The models will read this folder.</span></div>
+            <button class="choice" id="setup-choose-folder" type="button">Choose folder</button>
+          </li>
+          <li data-step="connect">
+            <div><strong>Connect at least one model</strong><span id="setup-connect">Each one signs in with its own account in your browser.</span></div>
+            <button class="choice" type="button" data-go="integrations">Open Integrations</button>
+          </li>
+          <li data-step="writer">
+            <div><strong>Choose who writes the code</strong><span>The others only suggest. You can change this any time.</span></div>
+            <div class="choices" id="setup-writers"></div>
+          </li>
+          <li data-step="try">
+            <div><strong>Try it</strong><span>Ask about the folder. Nothing is changed by a question like this.</span></div>
+            <button class="choice" id="setup-try" type="button">Ask "What is in this folder?"</button>
+          </li>
+        </ol>
+        <div class="setup-end">
+          <button class="primary" id="setup-done" type="button">Done</button>
+          <p class="note" id="setup-note"></p>
+        </div>
+      </section>
+      <section class="page chat" data-page="chat" hidden>
+        <aside class="history">
+          <button class="choice" id="new-chat" type="button">New chat</button>
+          <div id="chat-list"></div>
+        </aside>
+        <div class="chat-main">
+          <header class="page-head">
+            <h1>Chat</h1>
+            <p id="chat-folder">Messages stay with this folder. You can talk from here.</p>
+            <button class="choice" id="choose-folder-chat" type="button">Choose folder</button>
+          </header>
+          <div class="thread" id="thread" aria-live="polite"></div>
+          <div class="working" id="working" hidden>
+            <span class="pulse" aria-hidden="true"></span>
+            <div class="working-text"><strong id="working-what">Working</strong><span id="working-line">Starting…</span></div>
+            <span class="elapsed" id="working-time">0:00</span>
+            <button class="stop" id="stop" type="button">Stop</button>
+          </div>
+          <form class="composer" id="composer">
+            <textarea id="message" rows="1" placeholder="Message this folder"></textarea>
+            <button type="submit">Send</button>
+          </form>
+        </div>
+      </section>
+      <section class="page scroll" data-page="memory" hidden>
+        <header class="page-head">
+          <h1>Memory</h1>
+          <p>What every model is told about this folder. Fix anything wrong here, and they all see the fix.</p>
+          <input class="search" id="memory-search" type="search" placeholder="Search memory" />
+        </header>
+        <div class="memory" id="memory-hits" hidden></div>
+        <div class="memory">
+          <label for="memory-goal">Goal</label>
+          <textarea id="memory-goal" rows="2"></textarea>
+          <button class="choice" type="button" data-save="goal">Save goal</button>
+          <label for="memory-now">Current task</label>
+          <textarea id="memory-now" rows="2"></textarea>
+          <button class="choice" type="button" data-save="now">Save task</button>
+          <div class="memory-head">
+            <h2>Summary of earlier work</h2>
+            <button class="choice" id="memory-summarize" type="button">Summarize older work</button>
+          </div>
+          <p class="summary" id="memory-summary"></p>
+          <h2>Decisions</h2>
+          <div class="list" id="memory-decisions"></div>
+          <h2>Handoffs</h2>
+          <div class="list" id="memory-handoffs"></div>
+          <p class="note" id="memory-note"></p>
+        </div>
+      </section>
+      <section class="page" data-page="integrations" hidden>
+        <header class="page-head">
+          <h1>Integrations</h1>
+          <p>Turn a model off and it stays signed in. It just will not be asked. Usage counts what this app asked on this computer; the tools do not say how much of your plan is left.</p>
+          <button class="choice" id="check-health" type="button">Check tools again</button>
+        </header>
+        <p class="banner" id="health-banner" hidden></p>
+        <div class="table" id="models"></div>
+        <p class="note" id="connect-note" hidden></p>
+      </section>
+      <section class="page" data-page="settings" hidden>
+        <header class="page-head">
+          <h1>Settings</h1>
+          <p>Choose who writes the code, and whether they work or debate.</p>
+        </header>
+        <div class="setting folder-row">
+          <span>Folder</span>
+          <div class="folder-pick">
+            <p id="folder-path"></p>
+            <button class="choice" id="choose-folder-settings" type="button">Choose folder</button>
+          </div>
+        </div>
+        <div class="setting">
+          <span>Writes</span>
+          <div class="choices" id="writers"></div>
+        </div>
+        <div class="setting">
+          <span>Mode</span>
+          <div class="choices" id="modes"></div>
+        </div>
+        <div class="setting folder-row">
+          <span>Team</span>
+          <div class="folder-pick">
+            <p id="team-status">Checking…</p>
+            <button class="choice" id="team-sync" type="button">Sync team memory</button>
+            <p class="note" id="team-note"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

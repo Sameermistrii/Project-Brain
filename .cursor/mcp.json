@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "project-brain": {
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "D:\\project-brain\\dist\\mcp.js"
+      ]
+    }
+  }
+}

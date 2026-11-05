@@ -1,0 +1,17 @@
+---
+description: Shared project brain. The user chooses who writes code.
+alwaysApply: true
+---
+
+This project keeps a shared brain in `.brain/`. Cursor, Claude, ChatGPT, and Grok read it so they share one goal, one set of decisions, and one handoff log.
+
+Before planning or editing, call the project-brain MCP tool `brain_brief`. If MCP is unavailable, read `.brain/local.json`, `.brain/manifest.json`, `.brain/goal.md`, `.brain/summary.md`, `.brain/now.md`, and the latest lines of `.brain/decisions.jsonl` and `.brain/handoffs.jsonl`.
+
+The user decides who writes code. The choice is `codeWriter` in `.brain/local.json` (older projects keep it in `.brain/manifest.json`). `brain_status` reports it.
+
+- If `codeWriter` is `cursor`, you may edit project files. When you finish, call `brain_add_handoff`.
+- If `codeWriter` is anyone else, or is empty, do not create, edit, or delete project files. Give a proposal and call `brain_add_handoff` with kind `proposal`.
+- After that work changes project files, run `graphify update .` so `graphify-out/` stays current for the other agents. Code-only updates need no API key. If `graphify` is not on PATH, run it from `%LOCALAPPDATA%\Programs\Python\Python311\Scripts\graphify.exe`.
+- Do not change `codeWriter` unless the user asks.
+
+Record a lasting choice with `brain_add_decision`.

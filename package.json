@@ -1,0 +1,97 @@
+{
+  "name": "project-brain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared project memory for Cursor, Claude, ChatGPT, and Grok. You choose who writes the code.",
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "desktop/main.mjs",
+  "bin": {
+    "project-brain": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test dist/brain.test.js dist/session.test.js dist/chat.test.js dist/serve.test.js dist/accounts.test.js dist/features.test.js",
+    "start": "npm run build && electron .",
+    "brain": "node dist/cli.js",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "release": "npm run build && electron-builder --publish always"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "electron-updater": "^6.8.11",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "electron": "^45.2.1",
+    "electron-builder": "^26.18.0",
+    "typescript": "^5.9.3"
+  },
+  "productName": "Project Brain",
+  "author": "Sameer Mistri",
+  "repository": "github:Sameermistrii/project-brain",
+  "build": {
+    "appId": "com.sameermistri.projectbrain",
+    "productName": "Project Brain",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*.js",
+      "!dist/**/*.test.js",
+      "desktop/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Project-Brain-Setup-${version}-${arch}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "artifactName": "Project-Brain-${version}-${arch}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Sameermistrii",
+        "repo": "project-brain"
+      }
+    ]
+  }
+}

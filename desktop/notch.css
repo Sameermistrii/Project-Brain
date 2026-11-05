@@ -1,0 +1,148 @@
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  color: #f4f1ea;
+  font: 13px/1.4 "Segoe UI", sans-serif;
+}
+button, input { font: inherit; color: inherit; }
+button { border: 0; background: transparent; cursor: pointer; }
+
+/* The shape hangs from the top edge. The two shoulders are the curves
+   that join it to that edge, so the top reads as part of the screen. */
+.wrap {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  --s: 16px;
+  --ink: #0c0c0c;
+}
+.sh {
+  position: absolute;
+  top: 0;
+  width: var(--s);
+  height: var(--s);
+  pointer-events: none;
+}
+.sh.l {
+  right: 100%;
+  background: radial-gradient(circle at 0 100%, transparent calc(var(--s) - 0.5px), var(--ink) var(--s));
+}
+.sh.r {
+  left: 100%;
+  background: radial-gradient(circle at 100% 100%, transparent calc(var(--s) - 0.5px), var(--ink) var(--s));
+}
+.body {
+  position: relative;
+  background: var(--ink);
+  overflow: hidden;
+  border-radius: 0 0 12px 12px;
+}
+.mark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: opacity 0.16s ease;
+}
+.mark i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f4f1ea;
+}
+.body.open .mark { opacity: 0; }
+
+.panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px 12px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.panel.on {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.row { display: flex; align-items: center; gap: 8px; min-height: 30px; flex: none; }
+.row + .row { margin-top: 4px; }
+.label {
+  width: 48px;
+  color: #9a9388;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  flex: none;
+}
+.choices, .accounts { display: flex; gap: 6px; flex-wrap: wrap; }
+.accounts { margin-left: auto; }
+button.choice, button.account, .ask button, .x {
+  background: #242424;
+  border-radius: 999px;
+  padding: 4px 9px;
+}
+button.choice.folder {
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+button.choice[aria-pressed="true"] { background: #f4f1ea; color: #141414; }
+button.choice.mode[aria-pressed="true"] { background: #1f8a4d; color: #f4f1ea; }
+button.account { background: transparent; border: 1px solid #3a3a3a; color: #c8c2b6; }
+button.account.on { border-color: #1f8a4d; color: #b7ebc9; }
+.x { margin-left: auto; width: 26px; height: 26px; padding: 0; color: #9a9388; background: transparent; flex: none; }
+.thread {
+  flex: 1;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+}
+.thread[hidden] { display: none; }
+.thread-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
+}
+.bubble {
+  max-width: 92%;
+  padding: 8px 10px;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  user-select: text;
+}
+.bubble.user { align-self: flex-end; background: #f4f1ea; color: #161616; }
+.bubble.brain { align-self: flex-start; background: #1c1c1c; color: #ddd6c8; }
+.thread::-webkit-scrollbar { width: 6px; }
+.thread::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14); border-radius: 3px; }
+.ask { display: flex; gap: 8px; margin-top: 8px; flex: none; }
+.ask[hidden] { display: none; }
+.ask input {
+  flex: 1;
+  border: 1px solid #333;
+  background: #161616;
+  border-radius: 999px;
+  padding: 8px 12px;
+  outline: none;
+}
+.ask button { background: #1f8a4d; }
+
+/* Undo and Apply under a reply, and Send turning into Stop. */
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.action { border: 1px solid #3a3a3a; background: #232323; color: #f4f1ea; border-radius: 999px; height: 24px; padding: 0 10px; cursor: pointer; font: inherit; font-size: 11px; }
+.action:disabled { opacity: 0.45; cursor: default; }
+.ask button.stop { background: #7a2626; }

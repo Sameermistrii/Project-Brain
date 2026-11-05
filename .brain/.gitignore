@@ -1,0 +1,9 @@
+chats/
+checkpoints/
+checkpoints.jsonl
+debate.json
+local.json
+config.json
+usage.jsonl
+.env
+*.tmp

@@ -1,0 +1,37 @@
+name: Release
+
+# Push a tag like v0.2.0 to build the Windows and Mac installers and publish them to GitHub Releases.
+# Installed copies of the app check those releases and update themselves.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: git config --global user.name "CI" && git config --global user.email "ci@example.com"
+      - run: npm test
+      - run: npm run release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional code signing. Without these the installers still build, but Windows SmartScreen and
+          # macOS Gatekeeper warn people before opening them. See docs/releasing.md.
+          CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.MAC_CERTIFICATE || secrets.WIN_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'macos-latest' && secrets.MAC_CERTIFICATE_PASSWORD || secrets.WIN_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
